@@ -1,25 +1,37 @@
-.PHONY: test build vet tidy compose-up compose-down run
+.PHONY: test build vet tidy compose-up compose-down run run-mmm
 
-## 运行全部测试（含架构守护测试；依赖 MySQL 的集成测试在没有数据库时自动跳过）
+# 全部 Go module（workspace 内），按目录逐个执行
+MODULES := architecture/monolithic \
+           architecture/monolithic-multi-module/shared \
+           architecture/monolithic-multi-module/product \
+           architecture/monolithic-multi-module/payment \
+           architecture/monolithic-multi-module/order \
+           architecture/monolithic-multi-module/bootstrap
+
+## 运行全部测试（逐模块；P1 集成测试无 MySQL 自动跳过，P2 零依赖）
 test:
-	go test ./...
+	@for m in $(MODULES); do echo "== $$m =="; (cd $$m && go test ./...) || exit 1; done
 
 build:
-	go build ./...
+	@for m in $(MODULES); do (cd $$m && go build ./...) || exit 1; done
 
 vet:
-	go vet ./...
+	@for m in $(MODULES); do (cd $$m && go vet ./...) || exit 1; done
 
 tidy:
-	go mod tidy
+	@for m in $(MODULES); do (cd $$m && go mod tidy) || exit 1; done
 
-## 启动 monolithic 的 MySQL（Docker）
+## 启动 monolithic 的 MySQL（Docker，供 P1 使用；P2 默认 SQLite 内存库无需它）
 compose-up:
 	docker compose -f architecture/monolithic/docker-compose.yml up -d
 
 compose-down:
 	docker compose -f architecture/monolithic/docker-compose.yml down
 
-## 启动应用（会先拉起 MySQL）
+## 启动 P1 单体（会先拉起 MySQL）
 run: compose-up
 	go run ./architecture/monolithic/cmd/monolithic
+
+## 启动 P2 多模块单体（SQLite 内存库，零外部依赖，端口 8081）
+run-mmm:
+	go run ./architecture/monolithic-multi-module/bootstrap/cmd/mmm

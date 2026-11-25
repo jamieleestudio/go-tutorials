@@ -1,3 +1,9 @@
 go 1.26
 
 use ./architecture/monolithic
+
+use ./architecture/monolithic-multi-module/shared
+use ./architecture/monolithic-multi-module/product
+use ./architecture/monolithic-multi-module/payment
+use ./architecture/monolithic-multi-module/order
+use ./architecture/monolithic-multi-module/bootstrap

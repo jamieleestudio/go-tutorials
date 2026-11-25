@@ -8,7 +8,7 @@ Go 语言学习指南 —— 参照 [java-tutorials](../java-tutorials) 的模�
 |---|---|---|---|---|
 | P0 | 仓库脚手架：go.work / Makefile / 统一依赖 | Maven 多模块 + parent POM | Go module 与 workspace 机制 | ✅ |
 | P1 | `architecture/monolithic` | `architecture/monolithic` | DDD 四层、依赖倒置、手动 DI、领域事件、事务边界 | ✅ |
-| P2 | `architecture/monolithic-multi-module` | `architecture/monolithic-multi-module` | go.work 多 module、shared-kernel 复用 | ⬜ |
+| P2 | `architecture/monolithic-multi-module` | `architecture/monolithic-multi-module` | go.work 多 module、shared-kernel 复用 | ✅ |
 | P3 | `architecture/erp` | `architecture/erp` | 平台层（kernel/persistence/web/messaging）+ 业务模块 | ⬜ |
 | P4 | `architecture/microservices` | `architecture/microservices` | gin 网关 + 多服务，gRPC + protobuf（对应 Feign） | ⬜ |
 | P5 | `architecture/event-driven` | `architecture/event-driven` | Outbox、事件信封、幂等去重、Saga | ⬜ |
@@ -37,7 +37,13 @@ go-tutorials/
 ├── go.work                  # workspace：聚合所有 Go module
 ├── Makefile                 # make test / make run / make compose-up
 └── architecture/
-    └── monolithic/          # P1：单体四层架构（已完成）
+    ├── monolithic/                  # P1：单体四层架构（已完成）
+    └── monolithic-multi-module/     # P2：多模块单体（已完成，5 个 Go module）
+        ├── shared/                  #   内核模块
+        ├── product/                 #   产品上下文模块
+        ├── payment/                 #   支付上下文模块
+        ├── order/                   #   订单上下文模块
+        └── bootstrap/               #   组装 + 入口 + 测试（SQLite 内存库，零依赖启动）
 ```
 
 ## 快速开始（monolithic）
