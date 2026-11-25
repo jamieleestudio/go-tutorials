@@ -1,0 +1,28 @@
+name: go-tutorials-monolithic
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: go-tutorials-monolithic-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpw
+      MYSQL_DATABASE: monolith
+      MYSQL_USER: monolith
+      MYSQL_PASSWORD: monolith
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "13306:3306"
+    volumes:
+      - monolithic-mysql-data:/var/lib/mysql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpw"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  monolithic-mysql-data:

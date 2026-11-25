@@ -20,13 +20,14 @@ profile.cov
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-# Go workspace file
-go.work
-go.work.sum
+# Go workspace 文件是本仓库的多模块聚合配置，需要提交。
+# （GitHub 官方 Go 模板默认忽略 go.work，这里特意放开）
+# go.work
+# go.work.sum
 
 # env file
 .env
 
 # Editor/IDE
-# .idea/
+.idea/
 # .vscode/
