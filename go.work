@@ -7,3 +7,5 @@ use ./architecture/monolithic-multi-module/product
 use ./architecture/monolithic-multi-module/payment
 use ./architecture/monolithic-multi-module/order
 use ./architecture/monolithic-multi-module/bootstrap
+
+use ./architecture/erp

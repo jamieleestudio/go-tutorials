@@ -1,4 +1,4 @@
-.PHONY: test build vet tidy compose-up compose-down run run-mmm
+.PHONY: test build vet tidy compose-up compose-down run run-mmm run-erp
 
 # 全部 Go module（workspace 内），按目录逐个执行
 MODULES := architecture/monolithic \
@@ -6,9 +6,10 @@ MODULES := architecture/monolithic \
            architecture/monolithic-multi-module/product \
            architecture/monolithic-multi-module/payment \
            architecture/monolithic-multi-module/order \
-           architecture/monolithic-multi-module/bootstrap
+           architecture/monolithic-multi-module/bootstrap \
+           architecture/erp
 
-## 运行全部测试（逐模块；P1 集成测试无 MySQL 自动跳过，P2 零依赖）
+## 运行全部测试（逐模块；P1 集成测试无 MySQL 自动跳过，P2/P3 零依赖）
 test:
 	@for m in $(MODULES); do echo "== $$m =="; (cd $$m && go test ./...) || exit 1; done
 
@@ -35,3 +36,17 @@ run: compose-up
 ## 启动 P2 多模块单体（SQLite 内存库，零外部依赖，端口 8081）
 run-mmm:
 	go run ./architecture/monolithic-multi-module/bootstrap/cmd/mmm
+
+## 启动 P3 erp 的 boot 形态（全部端 + job，SQLite 内存库，端口 8080）
+run-erp:
+	go run ./architecture/erp/app/cmd/erpboot
+
+## 启动 P3 erp 的其他部署形态（make run-erp-admin/mobile/openapi）
+run-erp-admin:
+	go run ./architecture/erp/app/cmd/erpadmin
+
+run-erp-mobile:
+	go run ./architecture/erp/app/cmd/erpmobile
+
+run-erp-openapi:
+	go run ./architecture/erp/app/cmd/erpopenapi

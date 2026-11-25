@@ -9,7 +9,7 @@ Go 语言学习指南 —— 参照 [java-tutorials](../java-tutorials) 的模�
 | P0 | 仓库脚手架：go.work / Makefile / 统一依赖 | Maven 多模块 + parent POM | Go module 与 workspace 机制 | ✅ |
 | P1 | `architecture/monolithic` | `architecture/monolithic` | DDD 四层、依赖倒置、手动 DI、领域事件、事务边界 | ✅ |
 | P2 | `architecture/monolithic-multi-module` | `architecture/monolithic-multi-module` | go.work 多 module、shared-kernel 复用 | ✅ |
-| P3 | `architecture/erp` | `architecture/erp` | 平台层（kernel/persistence/web/messaging）+ 业务模块 | ⬜ |
+| P3 | `architecture/erp` | `architecture/erp` | 平台层 + api 契约层（域间只走 api）+ 端分包 + 多端装配 | ✅ |
 | P4 | `architecture/microservices` | `architecture/microservices` | gin 网关 + 多服务，gRPC + protobuf（对应 Feign） | ⬜ |
 | P5 | `architecture/event-driven` | `architecture/event-driven` | Outbox、事件信封、幂等去重、Saga | ⬜ |
 | P6 | `architecture/distributed` | `architecture/distributed` | 分布式事务（SAGA/TCC）、分布式 ID | ⬜ |
@@ -38,12 +38,19 @@ go-tutorials/
 ├── Makefile                 # make test / make run / make compose-up
 └── architecture/
     ├── monolithic/                  # P1：单体四层架构（已完成）
-    └── monolithic-multi-module/     # P2：多模块单体（已完成，5 个 Go module）
-        ├── shared/                  #   内核模块
-        ├── product/                 #   产品上下文模块
-        ├── payment/                 #   支付上下文模块
-        ├── order/                   #   订单上下文模块
-        └── bootstrap/               #   组装 + 入口 + 测试（SQLite 内存库，零依赖启动）
+    ├── monolithic-multi-module/     # P2：多模块单体（已完成，5 个 Go module）
+    │   ├── shared/                  #   内核模块
+    │   ├── product/                 #   产品上下文模块
+    │   ├── payment/                 #   支付上下文模块
+    │   ├── order/                   #   订单上下文模块
+    │   └── bootstrap/               #   组装 + 入口 + 测试（SQLite 内存库，零依赖启动）
+    └── erp/                         # P3：ERP 可演进架构（已完成，单 module 包优先）
+        ├── shared/                  #   共享内核（DomainError/AggregateRoot）
+        ├── platform/                #   平台层：kernel/persistence/security/web/messaging/integration
+        ├── system/                  #   纯提供方域（api 契约 + provider）
+        ├── grade/                   #   被跨域调用的域（五层 + web）
+        ├── attendance/              #   完整样例：五层 + 8 类端 + 领域事件 + 人脸识别端口
+        └── app/                     #   组合根（EndSet 多端装配）+ 4 个部署形态入口 + 测试
 ```
 
 ## 快速开始（monolithic）
