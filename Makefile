@@ -1,4 +1,4 @@
-.PHONY: test build vet tidy compose-up compose-down run run-mmm run-erp
+.PHONY: test build vet tidy compose-up compose-down run run-mmm run-erp proto run-ms run-ms-product run-ms-payment run-ms-order run-ms-gateway
 
 # 全部 Go module（workspace 内），按目录逐个执行
 MODULES := architecture/monolithic \
@@ -7,7 +7,12 @@ MODULES := architecture/monolithic \
            architecture/monolithic-multi-module/payment \
            architecture/monolithic-multi-module/order \
            architecture/monolithic-multi-module/bootstrap \
-           architecture/erp
+           architecture/erp \
+           architecture/microservices/shared \
+           architecture/microservices/product \
+           architecture/microservices/payment \
+           architecture/microservices/order \
+           architecture/microservices/gateway
 
 ## 运行全部测试（逐模块；P1 集成测试无 MySQL 自动跳过，P2/P3 零依赖）
 test:
@@ -50,3 +55,38 @@ run-erp-mobile:
 
 run-erp-openapi:
 	go run ./architecture/erp/app/cmd/erpopenapi
+
+## 重新生成 P4 的 protobuf 契约代码（需要 protoc + protoc-gen-go + protoc-gen-go-grpc 在 PATH）
+proto:
+	protoc -I architecture/microservices/product/proto \
+	  --go_out=architecture/microservices/product/proto/productpb \
+	  --go_opt=module=github.com/jamieleestudio/go-tutorials/architecture/microservices/product/proto/productpb \
+	  --go-grpc_out=architecture/microservices/product/proto/productpb \
+	  --go-grpc_opt=module=github.com/jamieleestudio/go-tutorials/architecture/microservices/product/proto/productpb \
+	  architecture/microservices/product/proto/product.proto
+	protoc -I architecture/microservices/payment/proto \
+	  --go_out=architecture/microservices/payment/proto/paymentpb \
+	  --go_opt=module=github.com/jamieleestudio/go-tutorials/architecture/microservices/payment/proto/paymentpb \
+	  --go-grpc_out=architecture/microservices/payment/proto/paymentpb \
+	  --go-grpc_opt=module=github.com/jamieleestudio/go-tutorials/architecture/microservices/payment/proto/paymentpb \
+	  architecture/microservices/payment/proto/payment.proto
+
+## 启动 P4 微服务全家桶（3 服务 + 网关；sh 后台 &，Ctrl-C 前台网关）
+run-ms:
+	go run ./architecture/microservices/product/cmd/productsvc &
+	go run ./architecture/microservices/payment/cmd/paymentsvc &
+	go run ./architecture/microservices/order/cmd/ordersvc &
+	go run ./architecture/microservices/gateway/cmd/gateway
+
+## P4 单独启动某个服务（需要 4 个终端时逐个用）
+run-ms-product:
+	go run ./architecture/microservices/product/cmd/productsvc
+
+run-ms-payment:
+	go run ./architecture/microservices/payment/cmd/paymentsvc
+
+run-ms-order:
+	go run ./architecture/microservices/order/cmd/ordersvc
+
+run-ms-gateway:
+	go run ./architecture/microservices/gateway/cmd/gateway

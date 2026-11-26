@@ -1,0 +1,42 @@
+// payment.proto —— payment 服务的跨服务 RPC 契约（对应 Java ms-payment-api 的 PaymentService）。
+//
+// 只暴露 order 服务需要的最小命令面：支付 + 退款。
+// Pay 必须幂等：同一订单重复支付返回既有支付单（对应 Java PaymentServiceImpl 的语义）。
+syntax = "proto3";
+
+package ms.payment.v1;
+
+option go_package = "github.com/jamieleestudio/go-tutorials/architecture/microservices/payment/proto/paymentpb";
+
+// Payment 支付单契约 DTO（对应 Java payment-api 的 PaymentDto）。
+message Payment {
+  // 支付单 ID
+  string payment_id = 1;
+  // 关联订单 ID
+  string order_id = 2;
+  // 支付金额，decimal 以 string 承载
+  string amount = 3;
+  // 状态：PENDING / SUCCESS / REFUNDED / FAILED
+  string status = 4;
+}
+
+// PayRequest 发起支付（对应 pay(PayCommand{orderId, amount})）。
+message PayRequest {
+  string order_id = 1;
+  // 支付金额，decimal 以 string 承载
+  string amount = 2;
+}
+
+// RefundRequest 发起退款（对应 refund(String paymentId)）。
+message RefundRequest {
+  string payment_id = 1;
+}
+
+// PaymentCommandService 支付命令契约 —— 由 payment 服务实现，order 服务消费。
+// 对应 Java 版 PaymentRpcController 暴露的 /rpc/payments 内部接口。
+service PaymentCommandService {
+  // Pay 幂等支付：同一订单已有成功支付单则直接返回该支付单。
+  rpc Pay(PayRequest) returns (Payment);
+  // Refund 退款：SUCCESS -> REFUNDED。
+  rpc Refund(RefundRequest) returns (Payment);
+}

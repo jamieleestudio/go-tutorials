@@ -1,4 +1,4 @@
-go 1.26
+go 1.26.0
 
 use ./architecture/monolithic
 
@@ -9,3 +9,9 @@ use ./architecture/monolithic-multi-module/order
 use ./architecture/monolithic-multi-module/bootstrap
 
 use ./architecture/erp
+
+use ./architecture/microservices/shared
+use ./architecture/microservices/product
+use ./architecture/microservices/payment
+use ./architecture/microservices/order
+use ./architecture/microservices/gateway

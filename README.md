@@ -10,7 +10,7 @@ Go 语言学习指南 —— 参照 [java-tutorials](../java-tutorials) 的模�
 | P1 | `architecture/monolithic` | `architecture/monolithic` | DDD 四层、依赖倒置、手动 DI、领域事件、事务边界 | ✅ |
 | P2 | `architecture/monolithic-multi-module` | `architecture/monolithic-multi-module` | go.work 多 module、shared-kernel 复用 | ✅ |
 | P3 | `architecture/erp` | `architecture/erp` | 平台层 + api 契约层（域间只走 api）+ 端分包 + 多端装配 | ✅ |
-| P4 | `architecture/microservices` | `architecture/microservices` | gin 网关 + 多服务，gRPC + protobuf（对应 Feign） | ⬜ |
+| P4 | `architecture/microservices` | `architecture/microservices` | gin 网关 + 多服务，gRPC + protobuf（对应 Feign） | ✅ |
 | P5 | `architecture/event-driven` | `architecture/event-driven` | Outbox、事件信封、幂等去重、Saga | ⬜ |
 | P6 | `architecture/distributed` | `architecture/distributed` | 分布式事务（SAGA/TCC）、分布式 ID | ⬜ |
 | P7 | `architecture/cloud-native` | `architecture/cloud-native` | 健康探针、优雅停机、Dockerfile、K8s | ⬜ |
@@ -51,6 +51,12 @@ go-tutorials/
         ├── grade/                   #   被跨域调用的域（五层 + web）
         ├── attendance/              #   完整样例：五层 + 8 类端 + 领域事件 + 人脸识别端口
         └── app/                     #   组合根（EndSet 多端装配）+ 4 个部署形态入口 + 测试
+    └── microservices/               # P4：微服务（已完成，5 个 Go module，gRPC + protobuf）
+        ├── shared/                  #   共享内核 + persistence（DB 打开/事务传播）
+        ├── product/                 #   商品服务：REST :8083 + gRPC :9183（提供方）
+        ├── payment/                 #   支付服务：REST :8082 + gRPC :9182（Pay 幂等，提供方）
+        ├── order/                   #   订单服务：REST :8081，gRPC 客户端 + gobreaker 熔断（消费方）
+        └── gateway/                 #   API 网关：:8080 统一入口（ReverseProxy）
 ```
 
 ## 快速开始（monolithic）
@@ -82,6 +88,29 @@ go test ./...
 ```
 
 详细说明见 [architecture/monolithic/README.md](architecture/monolithic/README.md)。
+
+## 快速开始（P4 microservices，零外部设施）
+
+```powershell
+# 4 个终端分别启动（或 make run-ms）：
+go run ./architecture/microservices/product/cmd/productsvc   # REST :8083 + gRPC :9183
+go run ./architecture/microservices/payment/cmd/paymentsvc   # REST :8082 + gRPC :9182
+go run ./architecture/microservices/order/cmd/ordersvc       # REST :8081
+go run ./architecture/microservices/gateway/cmd/gateway      # :8080 统一入口
+
+# 全链路体验（全部经网关 8080；order→product/payment 走 gRPC + gobreaker 熔断）
+curl -X POST http://localhost:8080/api/products -H "Content-Type: application/json" `
+  -d '{"name":"Laptop","price":"999.99","stock":10}'
+curl -X POST http://localhost:8080/api/orders -H "Content-Type: application/json" `
+  -d '{"customerId":"customer-1","lines":[{"productId":"<productId>","quantity":2}]}'
+curl -X POST http://localhost:8080/api/orders/<orderId>/pay
+curl http://localhost:8080/api/orders/<orderId>
+curl -X POST http://localhost:8080/api/orders/<orderId>/cancel -H "Content-Type: application/json" -d '{"reason":"changed mind"}'
+```
+
+重新生成 protobuf 契约（需要 protoc + protoc-gen-go/-go-grpc 插件）：`make proto`。
+
+详细说明见 [architecture/microservices/README.md](architecture/microservices/README.md)。
 
 ## 环境说明
 

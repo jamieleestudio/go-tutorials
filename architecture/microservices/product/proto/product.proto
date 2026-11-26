@@ -1,0 +1,44 @@
+// product.proto —— product 服务的跨服务 RPC 契约（对应 Java ms-product-api 的 ProductService）。
+//
+// 只暴露 order 服务需要的最小查询面：单个查询 + 批量查询。
+// 金额（decimal）以 string 承载（protobuf 无 decimal 类型），
+// 传输格式与 Java 版 JSON 序列化 BigDecimal 保持兼容语义。
+syntax = "proto3";
+
+package ms.product.v1;
+
+option go_package = "github.com/jamieleestudio/go-tutorials/architecture/microservices/product/proto/productpb";
+
+// Product 商品契约 DTO（对应 Java product-api 的 ProductDto）。
+message Product {
+  // 商品 ID（对应 getProductId）
+  string product_id = 1;
+  // 商品名
+  string name = 2;
+  // 单价，decimal 以 string 承载（如 "19.90"）
+  string price = 3;
+  // 库存数量
+  int32 stock_quantity = 4;
+}
+
+// GetProductRequest 按 ID 查询单个商品（对应 getProduct(String productId)）。
+message GetProductRequest {
+  string product_id = 1;
+}
+
+// GetProductsRequest 按 ID 批量查询（对应 getProducts(List<String> ids)）。
+message GetProductsRequest {
+  repeated string product_ids = 1;
+}
+
+// ProductList 批量查询结果。
+message ProductList {
+  repeated Product products = 1;
+}
+
+// ProductQueryService 商品查询契约 —— 由 product 服务实现，order 服务消费。
+// 对应 Java 版 ProductRpcController 暴露的 /rpc/products 内部接口。
+service ProductQueryService {
+  rpc GetProduct(GetProductRequest) returns (Product);
+  rpc GetProducts(GetProductsRequest) returns (ProductList);
+}
