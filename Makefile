@@ -1,4 +1,4 @@
-.PHONY: test build vet tidy compose-up compose-down run run-mmm run-erp proto run-ms run-ms-product run-ms-payment run-ms-order run-ms-gateway run-eda
+.PHONY: test build vet tidy compose-up compose-down run run-mmm run-erp proto run-ms run-ms-product run-ms-payment run-ms-order run-ms-gateway run-eda run-eda-product run-eda-payment run-eda-order run-dist run-dist-product run-dist-payment run-dist-order
 
 # 全部 Go module（workspace 内），按目录逐个执行
 MODULES := architecture/monolithic \
@@ -16,7 +16,11 @@ MODULES := architecture/monolithic \
            architecture/event-driven/shared \
            architecture/event-driven/product \
            architecture/event-driven/payment \
-           architecture/event-driven/order
+           architecture/event-driven/order \
+           architecture/distributed/shared \
+           architecture/distributed/product \
+           architecture/distributed/payment \
+           architecture/distributed/order
 
 ## 运行全部测试（逐模块；P1 集成测试无 MySQL 自动跳过，P2/P3 零依赖）
 test:
@@ -110,3 +114,19 @@ run-eda-payment:
 
 run-eda-order:
 	go run ./architecture/event-driven/order/cmd/ordersvc
+
+## 启动 P6 分布式全栈（3 进程朴素 HTTP RPC，无注册中心/网关）
+run-dist:
+	go run ./architecture/distributed/product/cmd/productsvc &
+	go run ./architecture/distributed/payment/cmd/paymentsvc &
+	go run ./architecture/distributed/order/cmd/ordersvc
+
+## P6 单独启动某服务（需要 3 个终端时用）
+run-dist-product:
+	go run ./architecture/distributed/product/cmd/productsvc
+
+run-dist-payment:
+	go run ./architecture/distributed/payment/cmd/paymentsvc
+
+run-dist-order:
+	go run ./architecture/distributed/order/cmd/ordersvc

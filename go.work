@@ -20,3 +20,8 @@ use ./architecture/event-driven/shared
 use ./architecture/event-driven/product
 use ./architecture/event-driven/payment
 use ./architecture/event-driven/order
+
+use ./architecture/distributed/shared
+use ./architecture/distributed/product
+use ./architecture/distributed/payment
+use ./architecture/distributed/order

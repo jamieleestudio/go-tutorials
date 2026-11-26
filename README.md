@@ -12,7 +12,7 @@ Go 语言学习指南 —— 参照 [java-tutorials](../java-tutorials) 的模�
 | P3 | `architecture/erp` | `architecture/erp` | 平台层 + api 契约层（域间只走 api）+ 端分包 + 多端装配 | ✅ |
 | P4 | `architecture/microservices` | `architecture/microservices` | gin 网关 + 多服务，gRPC + protobuf（对应 Feign） | ✅ |
 | P5 | `architecture/event-driven` | `architecture/event-driven` | Outbox、事件信封、幂等去重、Saga | ✅ |
-| P6 | `architecture/distributed` | `architecture/distributed` | 分布式事务（SAGA/TCC）、分布式 ID | ⬜ |
+| P6 | `architecture/distributed` | `architecture/distributed` | 朴素 HTTP RPC：幂等（orderId 同单同 ID）、超时、重试 | ✅ |
 | P7 | `architecture/cloud-native` | `architecture/cloud-native` | 健康探针、优雅停机、Dockerfile、K8s | ⬜ |
 | P8 | `architecture/evolvable-architecture` | 同名文档模块 | 演进式架构笔记（中文） | ⬜ |
 
@@ -21,7 +21,7 @@ Go 语言学习指南 —— 参照 [java-tutorials](../java-tutorials) 的模�
 | 维度 | 选型 | Java 对照 |
 |---|---|---|
 | Web | gin | Spring MVC |
-| RPC | gRPC + protobuf（P4 起） | OpenFeign |
+| RPC | gRPC + protobuf（P4/P5）；P6 刻意朴素 HTTP + 手写超时/重试 | OpenFeign / RestClient |
 | 数据库 | MySQL 8（docker-compose）+ GORM | MySQL + JPA/Hibernate |
 | 金额 | shopspring/decimal | BigDecimal |
 | 事件 | 进程内 EventBus（channel 升级） | ApplicationEventPublisher |
@@ -62,6 +62,11 @@ go-tutorials/
         ├── product/                 #   商品服务：扣减/回补 + 补偿记账（REST :8083 + gRPC :9183）
         ├── payment/                 #   支付服务：纯事件进程（:8082 仅事件入口）
         └── order/                   #   订单服务：Saga 状态机 + 双事件汇合（REST :8081）
+    └── distributed/                 # P6：分布式（已完成，4 个 Go module，朴素 HTTP RPC）
+        ├── shared/                  #   内核 + persistence（DB 打开/事务传播）
+        ├── product/                 #   商品服务：REST :8083 + RPC /rpc/products（提供方）
+        ├── payment/                 #   支付服务：REST :8082 + RPC /rpc/payments（Pay 按 orderId 幂等）
+        └── order/                   #   订单服务：REST :8081，手写超时+重试的 HTTP 客户端（消费方）
 ```
 
 ## 快速开始（monolithic）
@@ -136,6 +141,31 @@ curl -X POST http://localhost:8081/api/orders/<orderId>/cancel -H "Content-Type:
 ```
 
 Java 版经 Kafka 收发事件；Go 教学版用 HTTP webhook（Outbox Relay POST）实现同样的 at-least-once + 幂等去重语义，零外部设施。详见 [architecture/event-driven/README.md](architecture/event-driven/README.md)。
+
+## 快速开始（P6 distributed，零外部设施）
+
+```powershell
+# 3 个终端分别启动（或 make run-dist）：
+go run ./architecture/distributed/product/cmd/productsvc   # REST :8083 + RPC /rpc/products
+go run ./architecture/distributed/payment/cmd/paymentsvc   # REST :8082 + RPC /rpc/payments
+go run ./architecture/distributed/order/cmd/ordersvc       # REST :8081
+
+# 全链路（order → payment/product 是真实跨进程 HTTP RPC）：
+curl -X POST http://localhost:8083/api/products -H "Content-Type: application/json" `
+  -d '{"name":"Laptop","price":"999.99","stock":10}'
+curl -X POST http://localhost:8081/api/orders -H "Content-Type: application/json" `
+  -d '{"customerId":"customer-1","lines":[{"productId":"<productId>","quantity":2}]}'
+curl -X POST http://localhost:8081/api/orders/<orderId>/pay          # → PAID（远程支付）
+curl http://localhost:8081/api/orders/<orderId>
+
+# 幂等体验：重放同一笔 pay RPC → 同一 paymentId，不产生第二笔支付
+curl -X POST "http://localhost:8082/rpc/payments/pay?orderId=<orderId>&amount=1999.98"
+
+curl -X POST http://localhost:8081/api/orders/<orderId>/cancel -H "Content-Type: application/json" -d '{"reason":"changed mind"}'
+# → 订单 CANCELLED + payment REFUNDED（远程退款）
+```
+
+P6 刻意不引入 gRPC/注册中心/熔断框架：连接 2s / 读 3s 超时 + 最多 2 次的网络层重试全部手写在 `order/infrastructure/rpc`，客户端敢重试靠的是 payment 按 orderId 幂等（同单同 ID）。详见 [architecture/distributed/README.md](architecture/distributed/README.md)。
 
 ## 环境说明
 
