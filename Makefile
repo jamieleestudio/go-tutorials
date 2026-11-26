@@ -1,7 +1,8 @@
 .PHONY: test build vet tidy compose-up compose-down run run-mmm run-erp proto run-ms run-ms-product run-ms-payment run-ms-order run-ms-gateway run-eda run-eda-product run-eda-payment run-eda-order run-dist run-dist-product run-dist-payment run-dist-order
 
 # 全部 Go module（workspace 内），按目录逐个执行
-MODULES := architecture/monolithic \
+MODULES := base \
+           architecture/monolithic \
            architecture/monolithic-multi-module/shared \
            architecture/monolithic-multi-module/product \
            architecture/monolithic-multi-module/payment \

@@ -6,6 +6,7 @@ Go 语言学习指南 —— 参照 [java-tutorials](../java-tutorials) 的模�
 
 | 阶段 | 模块 | 对应 Java 版 | 核心学习点 | 状态 |
 |---|---|---|---|---|
+| 基础 | `base` | `base`（base/se） | Go 语法全集：类型/切片/map/接口/泛型/嵌套类、goroutine/channel/sync/context、同名算法重写 | ✅ |
 | P0 | 仓库脚手架：go.work / Makefile / 统一依赖 | Maven 多模块 + parent POM | Go module 与 workspace 机制 | ✅ |
 | P1 | `architecture/monolithic` | `architecture/monolithic` | DDD 四层、依赖倒置、手动 DI、领域事件、事务边界 | ✅ |
 | P2 | `architecture/monolithic-multi-module` | `architecture/monolithic-multi-module` | go.work 多 module、shared-kernel 复用 | ✅ |
@@ -36,6 +37,12 @@ Go 语言学习指南 —— 参照 [java-tutorials](../java-tutorials) 的模�
 go-tutorials/
 ├── go.work                  # workspace：聚合所有 Go module
 ├── Makefile                 # make test / make run / make compose-up
+├── base/                    # 语法基础（已完成，1 个 Go module，纯标准库）
+│   ├── foundation/          #   类型/零值/iota 枚举/控制流/函数/错误处理（Java↔Go 对照）
+│   ├── structure/           #   切片陷阱/map/struct 接收者/嵌入/隐式接口/泛型/嵌套类对应物
+│   ├── concurrent/          #   goroutine/channel 全家桶/sync 原语/context（-race 验证）
+│   ├── algorithm/           #   QuickSort 三 partition/树形菜单排序/队列实现栈/跳台阶（同名重写）
+│   └── utils/               #   time 布局与时区坑/fmt 动词/strconv/strings/regexp
 └── architecture/
     ├── monolithic/                  # P1：单体四层架构（已完成）
     ├── monolithic-multi-module/     # P2：多模块单体（已完成，5 个 Go module）
@@ -68,6 +75,19 @@ go-tutorials/
         ├── payment/                 #   支付服务：REST :8082 + RPC /rpc/payments（Pay 按 orderId 幂等）
         └── order/                   #   订单服务：REST :8081，手写超时+重试的 HTTP 客户端（消费方）
 ```
+
+## 快速开始（语法基础 base，零依赖）
+
+每个主题都是「带 Java↔Go 对照注释的源文件 + 测试断言」，测试即文档：
+
+```powershell
+go test ./base/...                 # 全部语法主题
+go test -race ./base/concurrent    # 并发主题开 -race 抓数据竞争
+go test ./base/algorithm -v        # 快排三 partition / 菜单树排序 / 跳台阶
+```
+
+阅读顺序：`foundation` → `structure` → `concurrent` → `algorithm` → `utils`，
+源文件顶部注释逐条标注 Java 概念的 Go 写法。详见 [base/README.md](base/README.md)。
 
 ## 快速开始（monolithic）
 
