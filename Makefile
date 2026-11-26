@@ -1,4 +1,4 @@
-.PHONY: test build vet tidy compose-up compose-down run run-mmm run-erp proto run-ms run-ms-product run-ms-payment run-ms-order run-ms-gateway
+.PHONY: test build vet tidy compose-up compose-down run run-mmm run-erp proto run-ms run-ms-product run-ms-payment run-ms-order run-ms-gateway run-eda
 
 # 全部 Go module（workspace 内），按目录逐个执行
 MODULES := architecture/monolithic \
@@ -12,7 +12,11 @@ MODULES := architecture/monolithic \
            architecture/microservices/product \
            architecture/microservices/payment \
            architecture/microservices/order \
-           architecture/microservices/gateway
+           architecture/microservices/gateway \
+           architecture/event-driven/shared \
+           architecture/event-driven/product \
+           architecture/event-driven/payment \
+           architecture/event-driven/order
 
 ## 运行全部测试（逐模块；P1 集成测试无 MySQL 自动跳过，P2/P3 零依赖）
 test:
@@ -90,3 +94,19 @@ run-ms-order:
 
 run-ms-gateway:
 	go run ./architecture/microservices/gateway/cmd/gateway
+
+## 启动 P5 事件驱动全家桶（3 服务；Saga 投递介质是 HTTP webhook，零外部设施）
+run-eda:
+	go run ./architecture/event-driven/product/cmd/productsvc &
+	go run ./architecture/event-driven/payment/cmd/paymentsvc &
+	go run ./architecture/event-driven/order/cmd/ordersvc
+
+## P5 单独启动某个服务
+run-eda-product:
+	go run ./architecture/event-driven/product/cmd/productsvc
+
+run-eda-payment:
+	go run ./architecture/event-driven/payment/cmd/paymentsvc
+
+run-eda-order:
+	go run ./architecture/event-driven/order/cmd/ordersvc

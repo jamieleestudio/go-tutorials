@@ -11,7 +11,7 @@ Go 语言学习指南 —— 参照 [java-tutorials](../java-tutorials) 的模�
 | P2 | `architecture/monolithic-multi-module` | `architecture/monolithic-multi-module` | go.work 多 module、shared-kernel 复用 | ✅ |
 | P3 | `architecture/erp` | `architecture/erp` | 平台层 + api 契约层（域间只走 api）+ 端分包 + 多端装配 | ✅ |
 | P4 | `architecture/microservices` | `architecture/microservices` | gin 网关 + 多服务，gRPC + protobuf（对应 Feign） | ✅ |
-| P5 | `architecture/event-driven` | `architecture/event-driven` | Outbox、事件信封、幂等去重、Saga | ⬜ |
+| P5 | `architecture/event-driven` | `architecture/event-driven` | Outbox、事件信封、幂等去重、Saga | ✅ |
 | P6 | `architecture/distributed` | `architecture/distributed` | 分布式事务（SAGA/TCC）、分布式 ID | ⬜ |
 | P7 | `architecture/cloud-native` | `architecture/cloud-native` | 健康探针、优雅停机、Dockerfile、K8s | ⬜ |
 | P8 | `architecture/evolvable-architecture` | 同名文档模块 | 演进式架构笔记（中文） | ⬜ |
@@ -51,12 +51,17 @@ go-tutorials/
         ├── grade/                   #   被跨域调用的域（五层 + web）
         ├── attendance/              #   完整样例：五层 + 8 类端 + 领域事件 + 人脸识别端口
         └── app/                     #   组合根（EndSet 多端装配）+ 4 个部署形态入口 + 测试
-    └── microservices/               # P4：微服务（已完成，5 个 Go module，gRPC + protobuf）
-        ├── shared/                  #   共享内核 + persistence（DB 打开/事务传播）
-        ├── product/                 #   商品服务：REST :8083 + gRPC :9183（提供方）
-        ├── payment/                 #   支付服务：REST :8082 + gRPC :9182（Pay 幂等，提供方）
-        ├── order/                   #   订单服务：REST :8081，gRPC 客户端 + gobreaker 熔断（消费方）
-        └── gateway/                 #   API 网关：:8080 统一入口（ReverseProxy）
+    ├── microservices/               # P4：微服务（已完成，5 个 Go module，gRPC + protobuf）
+    │   ├── shared/                  #   共享内核 + persistence（DB 打开/事务传播）
+    │   ├── product/                 #   商品服务：REST :8083 + gRPC :9183（提供方）
+    │   ├── payment/                 #   支付服务：REST :8082 + gRPC :9182（Pay 幂等，提供方）
+    │   ├── order/                   #   订单服务：REST :8081，gRPC 客户端 + gobreaker 熔断（消费方）
+    │   └── gateway/                 #   API 网关：:8080 统一入口（ReverseProxy）
+    └── event-driven/                # P5：事件驱动（已完成，4 个 Go module，Outbox + Saga）
+        ├── shared/                  #   内核 + 集成事件契约（6 事件 + Envelope）
+        ├── product/                 #   商品服务：扣减/回补 + 补偿记账（REST :8083 + gRPC :9183）
+        ├── payment/                 #   支付服务：纯事件进程（:8082 仅事件入口）
+        └── order/                   #   订单服务：Saga 状态机 + 双事件汇合（REST :8081）
 ```
 
 ## 快速开始（monolithic）
@@ -111,6 +116,26 @@ curl -X POST http://localhost:8080/api/orders/<orderId>/cancel -H "Content-Type:
 重新生成 protobuf 契约（需要 protoc + protoc-gen-go/-go-grpc 插件）：`make proto`。
 
 详细说明见 [architecture/microservices/README.md](architecture/microservices/README.md)。
+
+## 快速开始（P5 event-driven，零外部设施）
+
+```powershell
+# 3 个终端分别启动（或 make run-eda）：
+go run ./architecture/event-driven/product/cmd/productsvc   # REST :8083 + gRPC :9183
+go run ./architecture/event-driven/payment/cmd/paymentsvc   # HTTP :8082（仅事件入口）
+go run ./architecture/event-driven/order/cmd/ordersvc       # REST :8081
+
+# 全链路 Saga（下单立即返回 CREATED；~1-2s 后双事件到齐 CONFIRMED）：
+curl -X POST http://localhost:8083/api/products -H "Content-Type: application/json" `
+  -d '{"name":"Laptop","price":"100.00","stock":10}'
+curl -X POST http://localhost:8081/api/orders -H "Content-Type: application/json" `
+  -d '{"customerId":"customer-1","lines":[{"productId":"<productId>","quantity":2}]}'
+curl http://localhost:8081/api/orders/<orderId>   # → CONFIRMED + paymentSucceeded + inventoryDeducted
+curl -X POST http://localhost:8081/api/orders/<orderId>/cancel -H "Content-Type: application/json" -d '{"reason":"changed mind"}'
+# 取消仅对 CREATED 有效；已扣库存凭 product 的补偿记账精确回补
+```
+
+Java 版经 Kafka 收发事件；Go 教学版用 HTTP webhook（Outbox Relay POST）实现同样的 at-least-once + 幂等去重语义，零外部设施。详见 [architecture/event-driven/README.md](architecture/event-driven/README.md)。
 
 ## 环境说明
 
