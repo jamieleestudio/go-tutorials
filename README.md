@@ -7,6 +7,7 @@ Go 语言学习指南 —— 参照 [java-tutorials](../java-tutorials) 的模�
 | 阶段 | 模块 | 对应 Java 版 | 核心学习点 | 状态 |
 |---|---|---|---|---|
 | 基础 | `base` | `base`（base/se） | Go 语法全集：类型/切片/map/接口/泛型/嵌套类、goroutine/channel/sync/context、同名算法重写 | ✅ |
+| 专题 | `concurrent` | `concurrent`（j.u.c. 七个子模块） | synchronized↔Mutex、volatile↔atomic、Executor↔worker pool、Future/CF↔channel/errgroup、j.u.c. 工具箱、virtual-thread↔goroutine | ✅ |
 | P0 | 仓库脚手架：go.work / Makefile / 统一依赖 | Maven 多模块 + parent POM | Go module 与 workspace 机制 | ✅ |
 | P1 | `architecture/monolithic` | `architecture/monolithic` | DDD 四层、依赖倒置、手动 DI、领域事件、事务边界 | ✅ |
 | P2 | `architecture/monolithic-multi-module` | `architecture/monolithic-multi-module` | go.work 多 module、shared-kernel 复用 | ✅ |
@@ -43,6 +44,13 @@ go-tutorials/
 │   ├── concurrent/          #   goroutine/channel 全家桶/sync 原语/context（-race 验证）
 │   ├── algorithm/           #   QuickSort 三 partition/树形菜单排序/队列实现栈/跳台阶（同名重写）
 │   └── utils/               #   time 布局与时区坑/fmt 动词/strconv/strings/regexp
+├── concurrent/              # 并发进阶专题（已完成，1 个 Go module，纯标准库，对照 j.u.c.）
+│   ├── mutex/               #   ← sychronized：锁语义/DCL 四步演进→sync.Once/值复制陷阱（vet copylocks）
+│   ├── volatile/            #   ← volatile：三句话↔atomic、快照发布、race detector 防线（构建标签拆分）
+│   ├── executor/            #   ← executor：worker pool/拒绝策略/Ticker 丢 tick/优雅关闭三步曲
+│   ├── future/              #   ← future+callable：channel 即 Future/池饥饿死锁/手写 errgroup
+│   ├── tools/               #   ← tools：Latch/Barrier(Cond)/Semaphore/Exchanger/毒丸/RWMutex
+│   └── virtthread/          #   ← virtual-thread：per-task goroutine 性能实验/ScopedValue↔context
 └── architecture/
     ├── monolithic/                  # P1：单体四层架构（已完成）
     ├── monolithic-multi-module/     # P2：多模块单体（已完成，5 个 Go module）
@@ -94,6 +102,22 @@ go test ./base/algorithm -v        # 快排三 partition / 菜单树排序 / 跳
 
 阅读顺序：`foundation` → `structure` → `concurrent` → `algorithm` → `utils`，
 源文件顶部注释逐条标注 Java 概念的 Go 写法。详见 [base/README.md](base/README.md)。
+
+## 快速开始（并发进阶 concurrent，零依赖）
+
+Java j.u.c. 七个子模块的 Go 对照：坑演示全部**通道编排确定性复现**（非概率），
+测试即文档：
+
+```powershell
+go test ./concurrent/...               # 全部并发专题（破损演示真跑：丢更新/重复创建真实发生）
+go test -race ./concurrent/...         # race 构建：Java 没有的防线，修复版必须零竞争
+go test ./concurrent/future -v -run TestPoolStarvation   # 池饥饿死锁：2 worker 死锁 vs 4 worker 通过
+go test ./concurrent/virtthread -v -run TestPerformance  # Java 1 万任务 100s vs 1s 的 Go 版缩影
+```
+
+阅读顺序：`mutex` → `volatile` → `executor` → `future` → `tools` → `virtthread`。
+「破损演示」按构建标签拆分：不带 `-race` 看坑真实发生，带 `-race` 证明修复版干净
+—— race detector 正是 Java 没有的免费防线。详见 [concurrent/README.md](concurrent/README.md)。
 
 ## 快速开始（monolithic）
 
