@@ -1,0 +1,26 @@
+云原生栈已部署。验证：
+
+  kubectl get pods,hpa,ingress
+
+探针与指标（Go 版路径；语义对应 Java 的 /actuator/health/liveness|readiness 与 /actuator/metrics）：
+
+  kubectl port-forward svc/order-service 8081:8080
+  curl http://127.0.0.1:8081/healthz/liveness    # {"status":"UP"}
+  curl http://127.0.0.1:8081/healthz/readiness   # {"status":"UP"}（未就绪时 503 OUT_OF_SERVICE）
+  curl http://127.0.0.1:8081/metrics             # Prometheus 文本格式
+
+全链路（经 Ingress 时去掉端口映射，替换为主机名）：
+
+  kubectl port-forward svc/product-service 8083:8080
+  kubectl port-forward svc/order-service 8081:8080
+
+  curl -X POST http://127.0.0.1:8083/api/products -H "Content-Type: application/json" \
+    -d '{"name":"Laptop","price":"999.99","stock":10}'
+  curl -X POST http://127.0.0.1:8081/api/orders -H "Content-Type: application/json" \
+    -d '{"customerId":"customer-1","lines":[{"productId":"<productId>","quantity":2}]}'
+  curl -X POST http://127.0.0.1:8081/api/orders/<orderId>/pay
+
+优雅停机观察（Go 版增强，Java 版没有这一环）：
+
+  kubectl delete pod <order-pod>
+  kubectl logs -f <new-pod>   # readiness OUT_OF_SERVICE → draining → graceful shutdown complete

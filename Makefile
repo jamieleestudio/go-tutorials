@@ -1,4 +1,4 @@
-.PHONY: test build vet tidy compose-up compose-down run run-mmm run-erp proto run-ms run-ms-product run-ms-payment run-ms-order run-ms-gateway run-eda run-eda-product run-eda-payment run-eda-order run-dist run-dist-product run-dist-payment run-dist-order
+.PHONY: test build vet tidy compose-up compose-down run run-mmm run-erp proto run-ms run-ms-product run-ms-payment run-ms-order run-ms-gateway run-eda run-eda-product run-eda-payment run-eda-order run-dist run-dist-product run-dist-payment run-dist-order run-cn run-cn-order run-cn-payment run-cn-product
 
 # 全部 Go module（workspace 内），按目录逐个执行
 MODULES := base \
@@ -21,7 +21,11 @@ MODULES := base \
            architecture/distributed/shared \
            architecture/distributed/product \
            architecture/distributed/payment \
-           architecture/distributed/order
+           architecture/distributed/order \
+           architecture/cloud-native/shared \
+           architecture/cloud-native/product \
+           architecture/cloud-native/payment \
+           architecture/cloud-native/order
 
 ## 运行全部测试（逐模块；P1 集成测试无 MySQL 自动跳过，P2/P3 零依赖）
 test:
@@ -131,3 +135,20 @@ run-dist-payment:
 
 run-dist-order:
 	go run ./architecture/distributed/order/cmd/ordersvc
+
+## 启动 P7 云原生三服务（本地模拟 K8s：统一镜像、不同 env —— 12-Factor 配置外置演示。
+## 容器里三服务都监听 8080，本地用 PORT=8082/8083 错开；order 的 RPC 地址指向 localhost）
+run-cn:
+	PORT=8082 go run ./architecture/cloud-native/payment/cmd/paymentsvc &
+	PORT=8083 go run ./architecture/cloud-native/product/cmd/productsvc &
+	PAYMENT_SERVICE_URL=http://127.0.0.1:8082 PRODUCT_SERVICE_URL=http://127.0.0.1:8083 go run ./architecture/cloud-native/order/cmd/ordersvc
+
+## P7 单独启动某服务（需要 3 个终端时用）
+run-cn-order:
+	PAYMENT_SERVICE_URL=http://127.0.0.1:8082 PRODUCT_SERVICE_URL=http://127.0.0.1:8083 go run ./architecture/cloud-native/order/cmd/ordersvc
+
+run-cn-payment:
+	PORT=8082 go run ./architecture/cloud-native/payment/cmd/paymentsvc
+
+run-cn-product:
+	PORT=8083 go run ./architecture/cloud-native/product/cmd/productsvc

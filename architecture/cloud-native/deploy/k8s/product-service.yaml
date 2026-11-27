@@ -1,0 +1,63 @@
+# product-service —— Deployment + Service（对照 Java deploy/k8s/product-service.yaml）。
+# 探针/资源与 Java 版一致；Go 版增强：terminationGracePeriodSeconds + preStop。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  labels:
+    app: product-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+    spec:
+      terminationGracePeriodSeconds: 30 # Go 版增强（Java 版没有）
+      containers:
+        - name: product-service
+          image: go-tutorials/cn-product-service:1.0
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: product-config
+            - secretRef:
+                name: db-secret
+          lifecycle: # Go 版增强：先给 endpoints 摘除留 5s，SIGTERM 同时在应用内摘流排水
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+          livenessProbe:
+            httpGet:
+              path: /healthz/liveness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz/readiness
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+spec:
+  selector:
+    app: product-service
+  ports:
+    - port: 8080
+      targetPort: 8080

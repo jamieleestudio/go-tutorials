@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ecommerce
+description: 云原生三服务栈（order / payment / product）—— Go 版，对照 Java deploy/helm/ecommerce
+type: application
+version: 1.0.0
+appVersion: "1.0"

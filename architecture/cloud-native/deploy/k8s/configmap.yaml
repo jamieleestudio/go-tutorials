@@ -1,0 +1,28 @@
+# 12-Factor：配置由平台注入（对照 Java deploy/k8s/configmap.yaml ——
+# Java 是 SPRING_DATASOURCE_URL + H2 内存库，Go 是 DB_DSN + SQLite 内存库）。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-config
+data:
+  PORT: "8080"
+  DB_DSN: "sqlite://file:cn-order?mode=memory&cache=shared"
+  DB_LOG_LEVEL: "warn"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-config
+data:
+  PORT: "8080"
+  DB_DSN: "sqlite://file:cn-payment?mode=memory&cache=shared"
+  DB_LOG_LEVEL: "warn"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: product-config
+data:
+  PORT: "8080"
+  DB_DSN: "sqlite://file:cn-product?mode=memory&cache=shared"
+  DB_LOG_LEVEL: "warn"

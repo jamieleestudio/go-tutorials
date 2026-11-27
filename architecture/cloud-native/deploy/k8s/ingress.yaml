@@ -1,0 +1,35 @@
+# 统一入口 Ingress（对照 Java deploy/k8s/ingress.yaml，路由规则逐字一致）：
+# /api/orders|payments|products → 对应服务的 :8080。平台级网关取代应用内网关。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ecommerce-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/orders/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: order-service
+                port:
+                  number: 8080
+          - path: /api/payments/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: payment-service
+                port:
+                  number: 8080
+          - path: /api/products/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: product-service
+                port:
+                  number: 8080

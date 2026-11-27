@@ -1,0 +1,80 @@
+# order-service —— Deployment + Service（对照 Java deploy/k8s/order-service.yaml）。
+#
+# 探针参数与 Java 版一致：liveness 20s/10s、readiness 10s/5s —— 只是路径从
+# /actuator/health/* 换成 Go 侧的 /healthz/*（语义逐条对齐，见 shared/cloudkit）。
+# 服务发现：PAYMENT_SERVICE_URL / PRODUCT_SERVICE_URL 直接写 K8s Service DNS。
+#
+# Go 版增强（Java 版缺失，注释逐处标注）：terminationGracePeriodSeconds + preStop，
+# 与应用内的优雅停机序列（cloudkit.Serve）配成完整闭环。
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  labels:
+    app: order-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      # Go 版增强（Java 版没有）：给"摘流 → 排水 → 收尾"留足窗口。
+      # 30s = preStop 5s + readiness 传播 + 应用排水 8s 的宽裕上限。
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: order-service
+          image: go-tutorials/cn-order-service:1.0
+          ports:
+            - containerPort: 8080
+          # 12-Factor: config from the platform（ConfigMap/Secret → env）
+          envFrom:
+            - configMapRef:
+                name: order-config
+            - secretRef:
+                name: db-secret
+          env:
+            - name: PAYMENT_SERVICE_URL
+              value: http://payment-service:8080   # K8s Service DNS = service discovery
+            - name: PRODUCT_SERVICE_URL
+              value: http://product-service:8080
+          # Go 版增强（Java 版没有）：preStop 先睡 5s —— 给 kubelet 摘除 endpoints
+          # 留时间；SIGTERM 同时到达应用，cloudkit.Serve 立即摘流并排水。
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+          # K8s probes replace middleware health checks（参数与 Java 版一致）
+          livenessProbe:
+            httpGet:
+              path: /healthz/liveness
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz/readiness
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service   # this name IS the DNS name other services use
+spec:
+  selector:
+    app: order-service
+  ports:
+    - port: 8080
+      targetPort: 8080

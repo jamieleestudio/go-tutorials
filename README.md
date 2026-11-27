@@ -14,7 +14,7 @@ Go 语言学习指南 —— 参照 [java-tutorials](../java-tutorials) 的模�
 | P4 | `architecture/microservices` | `architecture/microservices` | gin 网关 + 多服务，gRPC + protobuf（对应 Feign） | ✅ |
 | P5 | `architecture/event-driven` | `architecture/event-driven` | Outbox、事件信封、幂等去重、Saga | ✅ |
 | P6 | `architecture/distributed` | `architecture/distributed` | 朴素 HTTP RPC：幂等（orderId 同单同 ID）、超时、重试 | ✅ |
-| P7 | `architecture/cloud-native` | `architecture/cloud-native` | 健康探针、优雅停机、Dockerfile、K8s | ⬜ |
+| P7 | `architecture/cloud-native` | `architecture/cloud-native` | 健康探针、优雅停机、Dockerfile、K8s/Helm | ✅ |
 | P8 | `architecture/evolvable-architecture` | 同名文档模块 | 演进式架构笔记（中文） | ⬜ |
 
 ## 统一技术选型
@@ -74,6 +74,12 @@ go-tutorials/
         ├── product/                 #   商品服务：REST :8083 + RPC /rpc/products（提供方）
         ├── payment/                 #   支付服务：REST :8082 + RPC /rpc/payments（Pay 按 orderId 幂等）
         └── order/                   #   订单服务：REST :8081，手写超时+重试的 HTTP 客户端（消费方）
+    └── cloud-native/                # P7：云原生（已完成，4 个 Go module + deploy，业务代码沿用 P6）
+        ├── shared/                  #   内核 + persistence + cloudkit（探针/指标/优雅停机/12-Factor 配置）
+        ├── product/                 #   商品服务：REST :8080（统一端口）+ RPC /rpc/products
+        ├── payment/                 #   支付服务：REST :8080 + RPC /rpc/payments
+        ├── order/                   #   订单服务：REST :8080，RPC 基址默认 K8s Service DNS
+        └── deploy/                  #   docker 3×多阶段 Dockerfile + k8s 7×manifests + helm chart
 ```
 
 ## 快速开始（语法基础 base，零依赖）
@@ -186,6 +192,38 @@ curl -X POST http://localhost:8081/api/orders/<orderId>/cancel -H "Content-Type:
 ```
 
 P6 刻意不引入 gRPC/注册中心/熔断框架：连接 2s / 读 3s 超时 + 最多 2 次的网络层重试全部手写在 `order/infrastructure/rpc`，客户端敢重试靠的是 payment 按 orderId 幂等（同单同 ID）。详见 [architecture/distributed/README.md](architecture/distributed/README.md)。
+
+## 快速开始（P7 cloud-native，零外部设施）
+
+业务代码与 P6 逐字节相同，只换云原生运维外壳：统一 :8080（`PORT` env 可覆盖）、
+健康探针 `/healthz/liveness|readiness`、指标 `/metrics`、SIGTERM 优雅停机。
+
+```powershell
+# 3 个终端分别启动（或 make run-cn）：
+# 容器里三服务都监听 8080，本地用 PORT 错开；order 的 RPC 地址指回 localhost
+# —— 同一份代码不同 env，就是 12-Factor「配置外置」的演示
+$env:PORT="8082"; go run ./architecture/cloud-native/payment/cmd/paymentsvc
+$env:PORT="8083"; go run ./architecture/cloud-native/product/cmd/productsvc
+$env:PAYMENT_SERVICE_URL="http://127.0.0.1:8082"; $env:PRODUCT_SERVICE_URL="http://127.0.0.1:8083"; go run ./architecture/cloud-native/order/cmd/ordersvc
+
+# 云原生端点（每个服务都有；K8s 探针就打这两个路径）
+curl http://127.0.0.1:8082/healthz/liveness    # {"status":"UP"}（恒 UP，不查依赖）
+curl http://127.0.0.1:8082/healthz/readiness   # 未就绪 503 OUT_OF_SERVICE → 就绪 200 UP
+curl http://127.0.0.1:8082/metrics             # Prometheus 文本（http_requests_total + go_*/process_*）
+curl http://127.0.0.1:8082/info                # 服务名/版本/Go 版本/uptime
+
+# 全链路（order → payment/product 是真实跨进程 HTTP RPC，与 P6 相同）：
+curl -X POST http://127.0.0.1:8083/api/products -H "Content-Type: application/json" `
+  -d '{"name":"Laptop","price":"999.99","stock":10}'
+curl -X POST http://127.0.0.1:8081/api/orders -H "Content-Type: application/json" `
+  -d '{"customerId":"customer-1","lines":[{"productId":"<productId>","quantity":2}]}'
+curl -X POST http://127.0.0.1:8081/api/orders/<orderId>/pay          # → PAID（远程支付）
+```
+
+部署侧：`deploy/docker` 3 个多阶段 Dockerfile（distroless 非 root 镜像）、`deploy/k8s`
+原生 manifests（探针/HPA/Ingress/ConfigMap/Secret + **preStop/terminationGracePeriodSeconds
+优雅停机闭环，Java 版缺失的增强项**）、`deploy/helm/ecommerce` 一键 Chart。
+详见 [architecture/cloud-native/README.md](architecture/cloud-native/README.md)。
 
 ## 环境说明
 

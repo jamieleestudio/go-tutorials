@@ -27,3 +27,8 @@ use ./architecture/distributed/shared
 use ./architecture/distributed/product
 use ./architecture/distributed/payment
 use ./architecture/distributed/order
+
+use ./architecture/cloud-native/shared
+use ./architecture/cloud-native/product
+use ./architecture/cloud-native/payment
+use ./architecture/cloud-native/order

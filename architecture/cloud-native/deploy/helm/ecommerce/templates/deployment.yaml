@@ -1,0 +1,98 @@
+{{/* Deployment + per-service ConfigMap + 条件 HPA（对照 Java templates/deployment.yaml 的 range 循环）*/}}
+{{- range .Values.services }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .name }}-config
+  labels:
+    app: {{ .name }}
+    {{- include "ecommerce.labels" $ | nindent 4 }}
+data:
+  PORT: {{ .port | quote }}
+  DB_DSN: {{ printf "sqlite://file:%s?mode=memory&cache=shared" .name | quote }}
+  DB_LOG_LEVEL: "warn"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  labels:
+    app: {{ .name }}
+    {{- include "ecommerce.labels" $ | nindent 4 }}
+spec:
+  {{- if $.Values.autoscaling.enabled }}
+  {{/* HPA 管副本数时 Deployment 不应自带 replicas */}}
+  {{- else }}
+  replicas: {{ $.Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+    spec:
+      terminationGracePeriodSeconds: {{ $.Values.graceful.terminationGracePeriodSeconds }}
+      containers:
+        - name: {{ .name }}
+          image: {{ include "ecommerce.image" (dict "service" . "root" $) }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .port }}
+          envFrom:
+            - configMapRef:
+                name: {{ .name }}-config
+            - secretRef:
+                name: {{ include "ecommerce.fullname" $ }}-db-secret
+          {{- if eq .name "order-service" }}
+          {{/* 只有 order 需要跨服务地址：K8s Service DNS = 服务发现（Java 版同款硬编码 8080） */}}
+          env:
+            - name: PAYMENT_SERVICE_URL
+              value: http://payment-service:8080
+            - name: PRODUCT_SERVICE_URL
+              value: http://product-service:8080
+          {{- end }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "{{ $.Values.graceful.preStopSleepSeconds }}"]
+          livenessProbe:
+            httpGet:
+              path: {{ $.Values.probes.liveness.path }}
+              port: {{ .port }}
+            initialDelaySeconds: {{ $.Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ $.Values.probes.readiness.path }}
+              port: {{ .port }}
+            initialDelaySeconds: {{ $.Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.probes.readiness.periodSeconds }}
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
+---
+{{- if $.Values.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .name }}
+  labels:
+    app: {{ .name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .name }}
+  minReplicas: {{ $.Values.autoscaling.minReplicas }}
+  maxReplicas: {{ $.Values.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $.Values.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}

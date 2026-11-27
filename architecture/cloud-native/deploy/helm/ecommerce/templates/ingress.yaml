@@ -1,0 +1,35 @@
+{{- if .Values.ingress.enabled }}
+{{/* Ingress：平台级网关取代应用内网关（对照 Java templates/ingress.yaml 的 path 规则）*/}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ecommerce.fullname" . }}-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.host }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        {{- template "ecommerce.paths" . }}
+  {{- else }}
+  rules:
+    - http:
+        {{- template "ecommerce.paths" . }}
+  {{- end }}
+{{- end }}
+{{- define "ecommerce.paths" }}
+        paths:
+          {{- range .Values.services }}
+          {{/* /api/orders-service → /api/orders：去掉 -service 后缀再补 s（Java 版 replace 同款） */}}
+          - path: /api/{{ .name | replace "-service" "" }}s/?(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ .name }}
+                port:
+                  number: {{ .port }}
+          {{- end }}
+{{- end }}
