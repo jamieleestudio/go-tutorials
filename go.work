@@ -3,6 +3,8 @@ go 1.26.0
 use ./base
 use ./concurrent
 
+use ./distributed-infra
+
 use ./architecture/monolithic
 
 use ./architecture/monolithic-multi-module/shared

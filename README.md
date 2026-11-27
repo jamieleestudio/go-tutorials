@@ -8,6 +8,7 @@ Go 语言学习指南 —— 参照 [java-tutorials](../java-tutorials) 的模�
 |---|---|---|---|---|
 | 基础 | `base` | `base`（base/se） | Go 语法全集：类型/切片/map/接口/泛型/嵌套类、goroutine/channel/sync/context、同名算法重写 | ✅ |
 | 专题 | `concurrent` | `concurrent`（j.u.c. 七个子模块） | synchronized↔Mutex、volatile↔atomic、Executor↔worker pool、Future/CF↔channel/errgroup、j.u.c. 工具箱、virtual-thread↔goroutine | ✅ |
+| 专题 | `distributed-infra` | `distributed-infra`（distlock/outbox 已实现，id/transaction 空壳 pom） | 分布式锁「同一接口×3 介质」失效模式对照（残留/TTL/会话）、Outbox 完整版（SKIP LOCKED+退避+死信）、雪花 ID 落地 | ✅ |
 | P0 | 仓库脚手架：go.work / Makefile / 统一依赖 | Maven 多模块 + parent POM | Go module 与 workspace 机制 | ✅ |
 | P1 | `architecture/monolithic` | `architecture/monolithic` | DDD 四层、依赖倒置、手动 DI、领域事件、事务边界 | ✅ |
 | P2 | `architecture/monolithic-multi-module` | `architecture/monolithic-multi-module` | go.work 多 module、shared-kernel 复用 | ✅ |
@@ -51,6 +52,13 @@ go-tutorials/
 │   ├── future/              #   ← future+callable：channel 即 Future/池饥饿死锁/手写 errgroup
 │   ├── tools/               #   ← tools：Latch/Barrier(Cond)/Semaphore/Exchanger/毒丸/RWMutex
 │   └── virtthread/          #   ← virtual-thread：per-task goroutine 性能实验/ScopedValue↔context
+├── distributed-infra/         # 分布式基础设施专题（已完成，1 个 Go module，对照 distributed-infra）
+│   ├── distid/                #   ← distributed-id（Java 空壳 pom）：雪花算法落地（41/10/12 bit、时钟回拨拒绝）
+│   ├── distlock/              #   ← distributed-lock：同一 DistLock 接口 × 3 介质失效模式对照
+│   │   ├── mysql/             #     唯一索引锁 + FOR UPDATE 悲观锁（崩溃残留卡死；真 MySQL 不可达 skip）
+│   │   ├── redis/             #     SET NX PX + Lua compare-and-del（TTL 过期自愈；miniredis 内嵌零设施）
+│   │   └── zookeeper/         #     手写临时顺序节点 + watch 前驱（会话自愈；Curator 黑盒展开）
+│   └── outbox/                #   ← outbox 完整语义版：SKIP LOCKED 认领 + 指数退避 + FAILED 死信
 └── architecture/
     ├── monolithic/                  # P1：单体四层架构（已完成）
     ├── monolithic-multi-module/     # P2：多模块单体（已完成，5 个 Go module）
@@ -118,6 +126,25 @@ go test ./concurrent/virtthread -v -run TestPerformance  # Java 1 万任务 100s
 阅读顺序：`mutex` → `volatile` → `executor` → `future` → `tools` → `virtthread`。
 「破损演示」按构建标签拆分：不带 `-race` 看坑真实发生，带 `-race` 证明修复版干净
 —— race detector 正是 Java 没有的免费防线。详见 [concurrent/README.md](concurrent/README.md)。
+
+## 快速开始（分布式基础设施 distributed-infra，需 Docker MySQL）
+
+```powershell
+# 1. 启动基础设施（MySQL 必须；ZK/Redis 供锁演示，测试探测不可达自动跳过）
+docker compose -f distributed-infra/docker-compose.yml up -d
+
+# 2. 跑测试（无基础设施时集成测试自动 skip，纯单测照常全绿）
+go test ./distributed-infra/...
+go test -race ./distributed-infra/...
+
+# 3. Outbox 三场景 demo（同事务发布 / 回滚无泄漏 / 指数退避重试，约 20s）
+go run ./distributed-infra/outbox/demo
+```
+
+教学主轴：分布式锁「同一接口 × 三种介质」的失效模式对照（MySQL 残留卡死 / Redis TTL
+过期自愈 / ZK 会话自愈）；Java 空壳 pom 里排第一的 TODO（雪花算法）直接落地；
+Outbox 完整语义版是 P5 简化版的深化（SKIP LOCKED 并发认领实证 + 指数退避 + FAILED 死信）。
+详见 [distributed-infra/README.md](distributed-infra/README.md)。
 
 ## 快速开始（monolithic）
 

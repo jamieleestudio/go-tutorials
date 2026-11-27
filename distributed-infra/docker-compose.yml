@@ -1,0 +1,39 @@
+# distributed-infra 的外部设施：MySQL（outbox + 分布式锁必需）、Redis / ZooKeeper（锁演示可选）。
+# 对应 java-tutorials/distributed-solutions-outbox/docker-compose.yml（MySQL 沿用宿主 33061 端口约定）。
+name: go-tutorials-distributed-infra
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: distributed-infra-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpw
+      MYSQL_DATABASE: outbox_demo
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "33061:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpw"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  # 可选：distlock/zookeeper 演示（测试探测不可达自动跳过，与 Java 版同款策略）
+  zookeeper:
+    image: zookeeper:3.9
+    container_name: distributed-infra-zookeeper
+    restart: unless-stopped
+    ports:
+      - "2181:2181"
+
+  # 可选：生产 Redis（distlock/redis 的测试用 miniredis 内嵌实例，零设施可跑；
+  # 想体验真 Redis 语义时再用这里的服务）
+  redis:
+    image: redis:7
+    container_name: distributed-infra-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"

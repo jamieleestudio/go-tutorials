@@ -3,6 +3,7 @@
 # 全部 Go module（workspace 内），按目录逐个执行
 MODULES := base \
            concurrent \
+           distributed-infra \
            architecture/monolithic \
            architecture/monolithic-multi-module/shared \
            architecture/monolithic-multi-module/product \
